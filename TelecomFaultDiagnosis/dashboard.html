@@ -50,6 +50,7 @@ ul{margin:0;padding-left:18px}
 <script src="data/dashboard_data.js"></script>
 <script>
 const D = window.NOC_DATA;
+console.logg("DATA:",D);
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const arrow = p => p && p.length ? p.map(esc).join(' → ') : 'No path found';
