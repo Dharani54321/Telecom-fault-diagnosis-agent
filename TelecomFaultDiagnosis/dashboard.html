@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Telecom Fault Diagnosis - NOC Dashboard</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+ --bg:#eef2f6;--card:#fff;--ink:#16232f;--mute:#5d6f7e;--line:#d5dde5;--bfs:#1f6feb;--dfs:#c77700;--re:#1e8e5a;--bad:#d6332f;--badbg:#fdeceb;--soft:#e6edf3}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121a22;--card:#1a242e;--ink:#e6edf3;--mute:#93a4b3;--line:#2b3946;--bfs:#5b9bff;--dfs:#e3a03b;--re:#3fc287;--bad:#ff6b66;--badbg:#3a2022;--soft:#243240}}
+:root[data-theme="dark"]{--bg:#121a22;--card:#1a242e;--ink:#e6edf3;--mute:#93a4b3;--line:#2b3946;--bfs:#5b9bff;--dfs:#e3a03b;--re:#3fc287;--bad:#ff6b66;--badbg:#3a2022;--soft:#243240}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px 32px;align-items:baseline;justify-content:space-between;padding:18px 24px;background:var(--card);border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:20px;font-weight:650;letter-spacing:.2px}
+.stats{display:flex;gap:28px}.stats b{font-size:22px;font-variant-numeric:tabular-nums}.stats span{display:block;color:var(--mute);font-size:12px}
+main{display:grid;grid-template-columns:270px minmax(0,1fr);gap:16px;padding:16px 24px;max-width:1400px;margin:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+h2{margin:0 0 10px;font-size:14px;font-weight:650;color:var(--mute)}
+#runs{display:flex;flex-direction:column;gap:6px;max-height:640px;overflow:auto}
+.run{all:unset;cursor:pointer;display:block;padding:9px 10px;border:1px solid var(--line);border-radius:6px}
+.run:focus-visible,.chip:focus-visible{outline:2px solid var(--bfs);outline-offset:2px}
+.run[aria-current="true"]{border-color:var(--bfs);background:var(--soft)}
+.run small{color:var(--mute);display:block}.ok{color:var(--re)}.no{color:var(--bad)}
+.right{display:grid;gap:16px;min-width:0}
+.toggles{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.chip{all:unset;cursor:pointer;padding:3px 12px;border-radius:99px;border:1.5px solid var(--c);color:var(--c);font-size:13px}
+.chip[aria-pressed="true"]{background:var(--c);color:var(--card)}
+svg{width:100%;height:auto;display:block}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.type{font-size:26px;font-weight:700;margin:0}
+.pill{display:inline-block;padding:1px 10px;border-radius:99px;background:var(--soft);font-size:12px;margin-left:8px;vertical-align:middle}
+.meter{height:10px;background:var(--soft);border-radius:5px;overflow:hidden;margin:6px 0 2px}.meter i{display:block;height:100%;background:var(--re)}
+dl{margin:12px 0 0;display:grid;grid-template-columns:90px 1fr;gap:6px 10px}dt{color:var(--mute)}dd{margin:0}
+ul{margin:0;padding-left:18px}
+.row{display:grid;grid-template-columns:130px 1fr 40px;gap:8px;align-items:center;font-size:13px;margin:4px 0}
+.row .meter{margin:0;height:8px}.row .meter i{background:var(--bfs)}
+.path{font-variant-numeric:tabular-nums}
+.empty{padding:40px;text-align:center;color:var(--mute)}code{background:var(--soft);padding:1px 6px;border-radius:4px}
+@media(max-width:860px){main{grid-template-columns:1fr;padding:12px}.two{grid-template-columns:1fr}#runs{flex-direction:row;max-height:none;overflow-x:auto}.run{min-width:170px}header{padding:14px 12px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Telecom Fault Diagnosis Agent</h1>
+  <div class="stats" id="stats"></div>
+</header>
+<main id="app"></main>
+<script src="data/dashboard_data.js"></script>
+<script>
+const D = window.NOC_DATA;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const arrow = p => p && p.length ? p.map(esc).join(' → ') : 'No path found';
+const show = {bfs:true, dfs:true, re:true};
+let sel = 0;
+
+if (!D || !D.topology) {
+  $('app').innerHTML = '<div class="card empty" style="grid-column:1/-1">No results yet. Run <code>java -cp out Main --demo</code> from the project folder, then reload this page.</div>';
+} else {
+  sel = Math.max(0, D.runs.length - 1);
+  draw();
+}
+
+function draw() {
+  const runs = D.runs, run = runs[sel];
+  const good = runs.filter(r => r.correct).length;
+  $('stats').innerHTML = `<div><b>${runs.length}</b><span>diagnoses run</span></div><div><b>${runs.length ? Math.round(100*good/runs.length) : 0}%</b><span>matched injected fault</span></div><div><b>${D.topology.towers.length}</b><span>towers</span></div>`;
+  const list = runs.map((r,i) => `<button class="run" data-i="${i}" ${i===sel?'aria-current="true"':''}><b>${esc(r.id)}</b> ${esc(r.fault.type)} <span class="${r.correct?'ok':'no'}">${r.correct?'✔':'✘'}</span><small>${esc(r.source)} → ${esc(r.destination)}, at ${esc(r.fault.location)}</small></button>`).join('');
+  $('app').innerHTML = `
+   <section class="card"><h2>Diagnosis history</h2><div id="runs">${list || '<div class="empty">No runs yet.</div>'}</div></section>
+   <div class="right">
+     <section class="card"><h2>Network map</h2>
+       <div class="toggles">
+         <button class="chip" style="--c:var(--bfs)" data-k="bfs" aria-pressed="${show.bfs}">BFS shortest path</button>
+         <button class="chip" style="--c:var(--dfs)" data-k="dfs" aria-pressed="${show.dfs}">DFS path</button>
+         <button class="chip" style="--c:var(--re)" data-k="re" aria-pressed="${show.re}">Path after fault</button>
+       </div>${map(run)}</section>
+     ${run ? detail(run) : ''}
+   </div>`;
+  document.querySelectorAll('.run').forEach(b => b.onclick = () => { sel = +b.dataset.i; draw(); });
+  document.querySelectorAll('.chip').forEach(b => b.onclick = () => { show[b.dataset.k] = !show[b.dataset.k]; draw(); });
+}
+
+function map(run) {
+  const T = D.topology, pos = {};
+  T.towers.forEach(t => pos[t.id] = t);
+  const f = run ? run.fault : null, aff = run ? run.affected : [];
+  const isLinkFault = f && f.type === 'Link Failure';
+  const line = (p, col, w, dash) => p && p.length > 1 ? `<polyline points="${p.map(id => pos[id].x+','+pos[id].y).join(' ')}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" ${dash?`stroke-dasharray="${dash}"`:''} opacity=".9"/>` : '';
+  let s = `<svg viewBox="0 0 820 400" role="img" aria-label="Network topology with traced paths">`;
+  T.links.forEach(l => {
+    const a = pos[l.from], b = pos[l.to];
+    const bad = isLinkFault && (f.location === l.from+'-'+l.to || f.location === l.to+'-'+l.from);
+    s += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${bad?'var(--bad)':'var(--line)'}" stroke-width="${bad?4:3}" ${bad?'stroke-dasharray="3 7"':''}/>`;
+    if (bad) s += `<text x="${(a.x+b.x)/2}" y="${(a.y+b.y)/2+6}" text-anchor="middle" font-size="22" font-weight="700" fill="var(--bad)">✕</text>`;
+  });
+  if (run) {
+    if (show.dfs) s += line(run.dfsPath, 'var(--dfs)', 5, '10 8');
+    if (show.bfs) s += line(run.bfsPath, 'var(--bfs)', 5);
+    if (show.re)  s += line(run.reroutePath, 'var(--re)', 3);
+  }
+  T.towers.forEach(t => {
+    const down = f && !isLinkFault && f.location === t.id;
+    const hit = aff.includes(t.id);
+    const stroke = down ? (f.type==='Congestion' ? 'var(--dfs)' : 'var(--bad)') : 'var(--mute)';
+    const fill = down ? 'var(--badbg)' : (hit ? 'var(--soft)' : 'var(--card)');
+    s += `<g><circle cx="${t.x}" cy="${t.y}" r="22" fill="${fill}" stroke="${stroke}" stroke-width="${down?4:2}"/>
+      <text x="${t.x}" y="${t.y+5}" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">${esc(t.id)}</text>
+      <text x="${t.x}" y="${t.y+42}" text-anchor="middle" font-size="12" fill="var(--mute)">${esc(t.name)}</text>`;
+    if (run && (t.id === run.source || t.id === run.destination))
+      s += `<text x="${t.x}" y="${t.y-30}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--bfs)">${t.id===run.source?'SOURCE':'DESTINATION'}</text>`;
+    s += `</g>`;
+  });
+  return s + '</svg>';
+}
+
+function detail(r) {
+  const d = r.diagnosis, conf = Math.round(d.confidence);
+  const scores = Object.entries(d.all_scores || {}).sort((a,b) => b[1]-a[1])
+    .map(([k,v]) => `<div class="row"><span>${esc(k)}</span><div class="meter"><i style="width:${v}%"></i></div><span>${v}%</span></div>`).join('');
+  return `<div class="two">
+   <section class="card"><h2>Diagnosis for ${esc(r.id)}</h2>
+     <p class="type" style="color:${r.correct?'var(--ink)':'var(--bad)'}">${esc(d.fault_type)}<span class="pill">${esc(d.severity)}</span></p>
+     <div class="meter" role="meter" aria-valuenow="${conf}" aria-valuemin="0" aria-valuemax="100"><i style="width:${conf}%"></i></div>
+     <small>Confidence ${conf}%, rule: ${esc(d.matched_rule)}</small>
+     <dl><dt>Reason</dt><dd>${esc(d.reason)}</dd><dt>Action</dt><dd>${esc(d.recommended_action)}</dd>
+     <dt>Check</dt><dd class="${r.correct?'ok':'no'}">Injected ${esc(r.fault.type)} at ${esc(r.fault.location)}: ${r.correct?'diagnosis matches':'diagnosis does not match'}</dd></dl>
+   </section>
+   <section class="card"><h2>Symptoms sent to Python</h2>
+     <ul>${r.symptoms.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+     <h2 style="margin-top:14px">Rule scores</h2>${scores}
+   </section></div>
+   <section class="card"><h2>Traced paths</h2>
+     <dl><dt style="color:var(--bfs)">BFS</dt><dd class="path">${arrow(r.bfsPath)}</dd>
+     <dt style="color:var(--dfs)">DFS</dt><dd class="path">${arrow(r.dfsPath)}</dd>
+     <dt style="color:var(--re)">After fault</dt><dd class="path">${arrow(r.reroutePath)}</dd>
+     <dt>Affected</dt><dd>${r.affected.length ? esc(r.affected.join(', ')) : 'None, traffic can be re-routed'}</dd></dl>
+   </section>`;
+}
+</script>
+</body>
+</html>

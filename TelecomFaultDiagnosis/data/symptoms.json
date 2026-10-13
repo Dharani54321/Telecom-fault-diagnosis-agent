@@ -1,0 +1,11 @@
+{
+  "log_id": "LOG-005",
+  "timestamp": "2026-09-30 03:47:38",
+  "source": "T1",
+  "destination": "T6",
+  "symptoms": [
+    "High traffic",
+    "Slow network",
+    "Utilisation above 90% at T4"
+  ]
+}

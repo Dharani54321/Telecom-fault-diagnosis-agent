@@ -1,0 +1,25 @@
+{
+  "network": "Hyderabad Metro Telecom Network",
+  "towers": [
+    {"id": "T1", "name": "Central Hub",    "type": "Core",        "x": 90,  "y": 200},
+    {"id": "T2", "name": "North Junction", "type": "Aggregation", "x": 250, "y": 200},
+    {"id": "T3", "name": "East Ridge",     "type": "Aggregation", "x": 410, "y": 90},
+    {"id": "T4", "name": "Metro Hub",      "type": "Aggregation", "x": 410, "y": 310},
+    {"id": "T5", "name": "Hill Top",       "type": "Access",      "x": 570, "y": 60},
+    {"id": "T6", "name": "Harbor Point",   "type": "Access",      "x": 570, "y": 250},
+    {"id": "T7", "name": "University",     "type": "Access",      "x": 570, "y": 150},
+    {"id": "T8", "name": "Airport",        "type": "Access",      "x": 730, "y": 200},
+    {"id": "T9", "name": "Remote Village", "type": "Access",      "x": 730, "y": 340}
+  ],
+  "links": [
+    {"from": "T1", "to": "T2", "type": "Fiber"},
+    {"from": "T2", "to": "T3", "type": "Fiber"},
+    {"from": "T2", "to": "T4", "type": "Fiber"},
+    {"from": "T3", "to": "T5", "type": "Microwave"},
+    {"from": "T3", "to": "T7", "type": "Fiber"},
+    {"from": "T4", "to": "T6", "type": "Fiber"},
+    {"from": "T5", "to": "T6", "type": "Microwave"},
+    {"from": "T6", "to": "T8", "type": "Fiber"},
+    {"from": "T7", "to": "T8", "type": "Microwave"}
+  ]
+}

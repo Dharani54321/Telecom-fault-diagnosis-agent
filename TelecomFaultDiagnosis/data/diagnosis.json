@@ -1,0 +1,20 @@
+{
+  "log_id": "LOG-005",
+  "fault_type": "Congestion",
+  "confidence": 100,
+  "matched_rule": "high traffic + slow network",
+  "matched_symptoms": [
+    "high traffic",
+    "slow network"
+  ],
+  "severity": "MEDIUM",
+  "reason": "Congestion symptoms detected (high traffic + slow network)",
+  "recommended_action": "Rebalance traffic, enable load-balancing/QoS and plan extra capacity on the busy link.",
+  "all_scores": {
+    "Tower Failure": 0,
+    "Link Failure": 0,
+    "Congestion": 100,
+    "Signal/Power Issue": 0,
+    "Hardware Failure": 0
+  }
+}
